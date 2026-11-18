@@ -1,11 +1,9 @@
-
 package com.example.hospital_manager.controller;
 
 import com.example.hospital_manager.model.Patient;
 import com.example.hospital_manager.service.PatientService;
-
 import jakarta.validation.Valid;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,54 +11,47 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/patients")
-@PreAuthorize("hasAnyRole('ADMIN','RECEPTIONIST')")
+@RequiredArgsConstructor
 public class PatientController {
 
     private final PatientService patientService;
 
-    public PatientController(PatientService patientService) {
-        this.patientService = patientService;
-    }
-
-    @PostMapping
-    public Patient createPatient(
-            @Valid @RequestBody Patient patient) {
-
-        return patientService.createPatient(patient);
-    }
-
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<Patient> getAllPatients() {
-
         return patientService.getAllPatients();
     }
 
-    @GetMapping("/{id}")
-    public Patient getPatient(@PathVariable Long id) {
-
-        return patientService.getPatientById(id);
-    }
-
     @GetMapping("/search")
-    public List<Patient> searchPatients(
-            @RequestParam String name) {
-
+    @PreAuthorize("hasAnyRole('ADMIN','RECEPTIONIST','DOCTOR')")
+    public List<Patient> search(@RequestParam String name) {
         return patientService.searchPatients(name);
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR','NURSE','RECEPTIONIST')")
+    public Patient getPatient(@PathVariable Long id) {
+        return patientService.getPatient(id);
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','RECEPTIONIST')")
+    public Patient createPatient(
+            @Valid @RequestBody Patient patient) {
+        return patientService.createPatient(patient);
+    }
+
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','RECEPTIONIST')")
     public Patient updatePatient(
             @PathVariable Long id,
             @Valid @RequestBody Patient patient) {
-
         return patientService.updatePatient(id, patient);
     }
 
     @DeleteMapping("/{id}")
-    public String deletePatient(@PathVariable Long id) {
-
+    @PreAuthorize("hasRole('ADMIN')")
+    public void deletePatient(@PathVariable Long id) {
         patientService.deletePatient(id);
-
-        return "Patient deleted successfully";
     }
 }

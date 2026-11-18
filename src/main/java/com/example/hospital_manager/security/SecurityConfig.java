@@ -1,40 +1,28 @@
 
 package com.example.hospital_manager.security;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import org.springframework.http.HttpMethod;
-
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
-
-    private final JsonAuthenticationEntryPoint entryPoint;
-
-    private final JsonAccessDeniedHandler deniedHandler;
-
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtFilter,
-            JsonAuthenticationEntryPoint entryPoint,
-            JsonAccessDeniedHandler deniedHandler) {
-
-        this.jwtFilter = jwtFilter;
-        this.entryPoint = entryPoint;
-        this.deniedHandler = deniedHandler;
-    }
+    private final JsonAuthenticationEntryPoint authenticationEntryPoint;
+    private final JsonAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -49,61 +37,34 @@ public class SecurityConfig {
                 )
             )
 
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint(entryPoint)
-                .accessDeniedHandler(deniedHandler)
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
             )
 
             .authorizeHttpRequests(auth -> auth
 
-                // Public login
-                .requestMatchers(
-                    "/api/auth/login"
-                ).permitAll()
+                // Public authentication endpoints
+                .requestMatchers("/api/auth/**").permitAll()
 
-                // Admin registration only
-                .requestMatchers(
-                    "/api/auth/register"
-                ).hasRole("ADMIN")
+                // Admin endpoints
+                .requestMatchers(HttpMethod.GET,
+                        "/api/admin/patients")
+                        .hasRole("ADMIN")
 
-                // User and doctor management
-                .requestMatchers(
-                    "/api/users/**",
-                    "/api/doctors/**"
-                ).hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST,
+                        "/api/admin/doctors")
+                        .hasRole("ADMIN")
 
-                // Patient management
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/patients/**"
-                ).hasAnyRole("ADMIN", "RECEPTIONIST")
+                // Doctor and admin endpoints
+                .requestMatchers("/api/doctors/appointments")
+                        .hasAnyRole("DOCTOR", "ADMIN")
 
-                .requestMatchers(
-                    "/api/patients/**"
-                ).hasAnyRole("ADMIN", "RECEPTIONIST")
+                // Patient endpoints
+                .requestMatchers("/api/patients/appointments")
+                        .hasRole("PATIENT")
 
-                // Appointment management
-                .requestMatchers(
-                    HttpMethod.POST,
-                    "/api/appointments"
-                ).hasAnyRole("ADMIN", "RECEPTIONIST")
-
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/appointments/doctor"
-                ).hasRole("DOCTOR")
-
-                .requestMatchers(
-                    HttpMethod.PATCH,
-                    "/api/appointments/**"
-                ).hasRole("DOCTOR")
-
-                // Medical records
-                .requestMatchers(
-                    "/api/records/**"
-                ).hasRole("DOCTOR")
-
-                // All other URLs need authentication
+                // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
 
@@ -117,8 +78,14 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-
         return new BCryptPasswordEncoder();
     }
 
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration configuration)
+            throws Exception {
+
+        return configuration.getAuthenticationManager();
+    }
 }

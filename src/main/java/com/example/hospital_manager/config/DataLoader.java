@@ -1,92 +1,77 @@
-
 package com.example.hospital_manager.config;
 
 import com.example.hospital_manager.model.*;
 import com.example.hospital_manager.repository.*;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
+@RequiredArgsConstructor
 public class DataLoader {
 
+    private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
+    private final PasswordEncoder passwordEncoder;
+
     @Bean
-    CommandLineRunner loadData(
-            UserRepository userRepository,
-            PatientRepository patientRepository,
-            PasswordEncoder passwordEncoder) {
+    CommandLineRunner loadData() {
 
         return args -> {
 
-            // ADMIN account
-            createUser(
-                userRepository,
-                passwordEncoder,
-                "admin",
-                "admin123",
-                Role.ADMIN
-            );
+            if (userRepository.count() == 0) {
 
-            // DOCTOR account
-            createUser(
-                userRepository,
-                passwordEncoder,
-                "doctor1",
-                "doctor123",
-                Role.DOCTOR
-            );
+                AppUser admin = createUser("admin",
+                        "Admin@123", Role.ADMIN);
 
-            // NURSE account
-            createUser(
-                userRepository,
-                passwordEncoder,
-                "nurse1",
-                "nurse123",
-                Role.NURSE
-            );
+                AppUser doctor = createUser("doctor",
+                        "Doctor@123", Role.DOCTOR);
 
-            // RECEPTIONIST account
-            createUser(
-                userRepository,
-                passwordEncoder,
-                "reception1",
-                "reception123",
-                Role.RECEPTIONIST
-            );
+                AppUser patientUser = createUser("patient",
+                        "Patient@123", Role.PATIENT);
 
-            // Sample patient
-            if (patientRepository.count() == 0) {
+                createUser("nurse",
+                        "Nurse@123", Role.NURSE);
 
-                Patient patient = new Patient(
-                    "John Smith",
-                    "john@example.com",
-                    "0771234567",
-                    25
-                );
+                createUser("receptionist",
+                        "Reception@123", Role.RECEPTIONIST);
+
+                userRepository.save(admin);
+                userRepository.save(doctor);
+                userRepository.save(patientUser);
+
+                userRepository.save(
+                        userRepository.findByUsername("nurse").orElseThrow());
+
+                userRepository.save(
+                        userRepository.findByUsername("receptionist").orElseThrow());
+
+                Patient patient = Patient.builder()
+                        .name("John Smith")
+                        .email("john@example.com")
+                        .phone("0771234567")
+                        .user(patientUser)
+                        .build();
 
                 patientRepository.save(patient);
+
+                System.out.println("Sample accounts created.");
             }
         };
     }
 
-    private void createUser(
-            UserRepository repository,
-            PasswordEncoder encoder,
+    private AppUser createUser(
             String username,
             String password,
             Role role) {
 
-        if (!repository.existsByUsername(username)) {
-
-            AppUser user = new AppUser(
-                username,
-                encoder.encode(password),
-                role
-            );
-
-            repository.save(user);
-        }
+        return AppUser.builder()
+                .username(username)
+                .password(passwordEncoder.encode(password))
+                .role(role)
+                .enabled(true)
+                .build();
     }
 }

@@ -1,85 +1,37 @@
-
 package com.example.hospital_manager.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
+import lombok.*;
+import java.time.LocalDate;
 
 @Entity
-@Table(name = "patients")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Patient {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Patient name is required")
-    @Column(nullable = false)
+    @NotBlank
     private String name;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Enter a valid email")
-    @Column(unique = true, nullable = false)
+    @Email
+    @NotBlank
     private String email;
 
-    @NotBlank(message = "Phone number is required")
-    @Pattern(
-        regexp = "^[0-9+ -]{7,20}$",
-        message = "Enter a valid phone number"
-    )
+    @NotBlank
     private String phone;
 
-    @Min(value = 1, message = "Age must be at least 1")
-    @Max(value = 120, message = "Age must not exceed 120")
-    private int age;
+    private LocalDate dateOfBirth;
 
-    public Patient() {
-    }
+    private String address;
 
-    public Patient(
-            String name,
-            String email,
-            String phone,
-            int age) {
-
-        this.name = name;
-        this.email = email;
-        this.phone = phone;
-        this.age = age;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public int getAge() {
-        return age;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public void setAge(int age) {
-        this.age = age;
-    }
+    @OneToOne
+    @JoinColumn(name = "user_id", unique = true)
+    private AppUser user;
 }

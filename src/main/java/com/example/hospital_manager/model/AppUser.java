@@ -1,10 +1,15 @@
-
 package com.example.hospital_manager.model;
 
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
-@Table(name = "app_users")
+@Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class AppUser {
 
     @Id
@@ -21,44 +26,5 @@ public class AppUser {
     @Column(nullable = false)
     private Role role;
 
-    public AppUser() {
-    }
-
-    public AppUser(
-            String username,
-            String password,
-            Role role) {
-
-        this.username = username;
-        this.password = password;
-        this.role = role;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
-    }
+    private boolean enabled = true;
 }

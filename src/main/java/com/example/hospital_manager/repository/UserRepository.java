@@ -1,14 +1,10 @@
-
 package com.example.hospital_manager.repository;
 
 import com.example.hospital_manager.model.*;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.*;
 
-import java.util.List;
-import java.util.Optional;
-
-public interface UserRepository
-        extends JpaRepository<AppUser, Long> {
+public interface UserRepository extends JpaRepository<AppUser, Long> {
 
     Optional<AppUser> findByUsername(String username);
 

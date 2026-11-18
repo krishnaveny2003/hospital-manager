@@ -1,11 +1,9 @@
-
 package com.example.hospital_manager.controller;
 
 import com.example.hospital_manager.dto.*;
 import com.example.hospital_manager.service.AppointmentService;
-
 import jakarta.validation.Valid;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -13,43 +11,41 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/appointments")
+@RequestMapping("/api")
+@RequiredArgsConstructor
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
 
-    public AppointmentController(
-            AppointmentService appointmentService) {
+    @PostMapping("/patients/appointments")
+    @PreAuthorize("hasRole('PATIENT')")
+    public AppointmentResponse book(
+            @Valid @RequestBody AppointmentRequest request,
+            Authentication authentication) {
 
-        this.appointmentService = appointmentService;
+        return appointmentService.bookAppointment(
+                request, authentication.getName());
     }
 
-    @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','RECEPTIONIST')")
-    public AppointmentResponse bookAppointment(
-            @Valid @RequestBody AppointmentRequest request) {
-
-        return appointmentService.bookAppointment(request);
-    }
-
-    @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public List<AppointmentResponse> getAllAppointments() {
-
-        return appointmentService.getAllAppointments();
-    }
-
-    @GetMapping("/doctor")
-    @PreAuthorize("hasRole('DOCTOR')")
-    public List<AppointmentResponse> getDoctorAppointments(
+    @GetMapping("/doctors/appointments")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public List<AppointmentResponse> doctorAppointments(
             Authentication authentication) {
 
         return appointmentService.getDoctorAppointments(
-            authentication.getName()
-        );
+                authentication.getName());
     }
 
-    @PatchMapping("/{id}/status")
+    @GetMapping("/patients/appointments")
+    @PreAuthorize("hasRole('PATIENT')")
+    public List<AppointmentResponse> patientAppointments(
+            Authentication authentication) {
+
+        return appointmentService.getPatientAppointments(
+                authentication.getName());
+    }
+
+    @PatchMapping("/appointments/{id}/status")
     @PreAuthorize("hasRole('DOCTOR')")
     public AppointmentResponse updateStatus(
             @PathVariable Long id,
@@ -57,9 +53,6 @@ public class AppointmentController {
             Authentication authentication) {
 
         return appointmentService.updateStatus(
-            id,
-            request,
-            authentication.getName()
-        );
+                id, request, authentication.getName());
     }
 }

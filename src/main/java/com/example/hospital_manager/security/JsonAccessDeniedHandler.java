@@ -1,8 +1,10 @@
 
 package com.example.hospital_manager.security;
 
-import jakarta.servlet.http.*;
-
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
@@ -10,28 +12,27 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 @Component
-public class JsonAccessDeniedHandler
-        implements AccessDeniedHandler {
+public class JsonAccessDeniedHandler implements AccessDeniedHandler {
 
-    private final ErrorResponseWriter writer;
+    private final ErrorResponseWriter errorResponseWriter;
 
     public JsonAccessDeniedHandler(
-            ErrorResponseWriter writer) {
-
-        this.writer = writer;
+            ErrorResponseWriter errorResponseWriter
+    ) {
+        this.errorResponseWriter = errorResponseWriter;
     }
 
     @Override
     public void handle(
             HttpServletRequest request,
             HttpServletResponse response,
-            AccessDeniedException exception)
-            throws IOException {
+            AccessDeniedException accessDeniedException
+    ) throws IOException, ServletException {
 
-        writer.write(
-            response,
-            403,
-            "You do not have permission to access this resource"
+        errorResponseWriter.write(
+                response,
+                HttpStatus.FORBIDDEN,
+                "You do not have permission to access this resource."
         );
     }
 }

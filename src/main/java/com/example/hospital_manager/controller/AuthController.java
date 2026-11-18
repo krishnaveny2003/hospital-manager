@@ -30,6 +30,6 @@ public class AuthController {
 
     @GetMapping("/me")
     public UserResponse me(Authentication authentication) {
-        return authService.getMe(authentication.getName());
+        return authService.me(authentication.getName());
     }
 }

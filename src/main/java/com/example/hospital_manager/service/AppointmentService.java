@@ -1,138 +1,147 @@
-
 package com.example.hospital_manager.service;
 
 import com.example.hospital_manager.dto.*;
+import com.example.hospital_manager.exception.ApiException;
 import com.example.hospital_manager.model.*;
 import com.example.hospital_manager.repository.*;
-import com.example.hospital_manager.exception.ApiException;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
 
-    public AppointmentService(
-            AppointmentRepository appointmentRepository,
-            PatientRepository patientRepository,
-            UserRepository userRepository) {
-
-        this.appointmentRepository = appointmentRepository;
-        this.patientRepository = patientRepository;
-        this.userRepository = userRepository;
-    }
-
     public AppointmentResponse bookAppointment(
-            AppointmentRequest request) {
+            AppointmentRequest request,
+            String username) {
 
-        Patient patient = patientRepository
-            .findById(request.patientId())
-            .orElseThrow(() ->
-                new ApiException(
-                    "Patient not found",
-                    HttpStatus.NOT_FOUND
-                )
-            );
+        AppUser currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "User not found"));
 
-        AppUser doctor = userRepository
-            .findById(request.doctorId())
-            .orElseThrow(() ->
-                new ApiException(
-                    "Doctor not found",
-                    HttpStatus.NOT_FOUND
-                )
-            );
+        Patient patient = patientRepository.findById(request.patientId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Patient not found"));
 
-        if (doctor.getRole() != Role.DOCTOR) {
+        // Patients can only book for themselves.
+        if (currentUser.getRole() == Role.PATIENT &&
+                (patient.getUser() == null ||
+                 !patient.getUser().getId().equals(currentUser.getId()))) {
 
             throw new ApiException(
-                "Selected user is not a doctor",
-                HttpStatus.BAD_REQUEST
+                    HttpStatus.FORBIDDEN,
+                    "You can only book appointments for yourself"
             );
         }
 
-        Appointment appointment = new Appointment();
+        AppUser doctor = userRepository.findById(request.doctorId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Doctor not found"));
 
-        appointment.setPatient(patient);
-        appointment.setDoctor(doctor);
-        appointment.setAppointmentDate(
-            request.appointmentDate()
-        );
-        appointment.setStatus(
-            AppointmentStatus.SCHEDULED
-        );
+        if (doctor.getRole() != Role.DOCTOR) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST, "Selected user is not a doctor");
+        }
 
-        appointment = appointmentRepository.save(appointment);
+        if (request.appointmentDate().isBefore(LocalDateTime.now())) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Appointment date must be in the future");
+        }
 
-        return convertToResponse(appointment);
-    }
+        boolean exists = appointmentRepository
+                .existsByDoctorIdAndAppointmentDate(
+                        doctor.getId(),
+                        request.appointmentDate()
+                );
 
-    public List<AppointmentResponse> getAllAppointments() {
+        if (exists) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Doctor already has an appointment at this time");
+        }
 
-        return appointmentRepository.findAll()
-            .stream()
-            .map(this::convertToResponse)
-            .toList();
+        Appointment appointment = Appointment.builder()
+                .patient(patient)
+                .doctor(doctor)
+                .appointmentDate(request.appointmentDate())
+                .reason(request.reason())
+                .status(AppointmentStatus.SCHEDULED)
+                .build();
+
+        return toResponse(appointmentRepository.save(appointment));
     }
 
     public List<AppointmentResponse> getDoctorAppointments(
             String username) {
 
-        return appointmentRepository
-            .findByDoctorUsername(username)
-            .stream()
-            .map(this::convertToResponse)
-            .toList();
+        AppUser doctor = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Doctor not found"));
+
+        return appointmentRepository.findByDoctorId(doctor.getId())
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    @Transactional
+    public List<AppointmentResponse> getPatientAppointments(
+            String username) {
+
+        AppUser user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "User not found"));
+
+        Patient patient = patientRepository.findAll().stream()
+                .filter(p -> p.getUser() != null &&
+                        p.getUser().getId().equals(user.getId()))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Patient profile not found"));
+
+        return appointmentRepository.findByPatientId(patient.getId())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public AppointmentResponse updateStatus(
-            Long id,
-            StatusRequest request,
-            String doctorUsername) {
+            Long id, StatusRequest request, String username) {
 
-        Appointment appointment = appointmentRepository
-            .findById(id)
-            .orElseThrow(() ->
-                new ApiException(
-                    "Appointment not found",
-                    HttpStatus.NOT_FOUND
-                )
-            );
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Appointment not found"));
 
-        // Doctor ownership check
-        if (!appointment.getDoctor()
-                .getUsername().equals(doctorUsername)) {
-
+        if (!appointment.getDoctor().getUsername().equals(username)) {
             throw new ApiException(
-                "You cannot update another doctor's appointment",
-                HttpStatus.FORBIDDEN
-            );
+                    HttpStatus.FORBIDDEN,
+                    "You cannot update another doctor's appointment");
         }
 
         appointment.setStatus(request.status());
 
-        return convertToResponse(appointment);
+        return toResponse(appointmentRepository.save(appointment));
     }
 
-    private AppointmentResponse convertToResponse(
-            Appointment appointment) {
+    private AppointmentResponse toResponse(Appointment a) {
 
         return new AppointmentResponse(
-            appointment.getId(),
-            appointment.getPatient().getId(),
-            appointment.getPatient().getName(),
-            appointment.getDoctor().getId(),
-            appointment.getDoctor().getUsername(),
-            appointment.getAppointmentDate(),
-            appointment.getStatus().name()
+                a.getId(),
+                a.getPatient().getId(),
+                a.getPatient().getName(),
+                a.getDoctor().getId(),
+                a.getDoctor().getUsername(),
+                a.getAppointmentDate(),
+                a.getReason(),
+                a.getStatus().name()
         );
     }
 }

@@ -1,12 +1,9 @@
-
 package com.example.hospital_manager.exception;
 
 import com.example.hospital_manager.dto.ErrorResponse;
-
 import org.springframework.http.*;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-
+import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 
 @RestControllerAdvice
@@ -16,16 +13,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleApiException(
             ApiException ex) {
 
-        HttpStatus status = ex.getStatus();
-
-        return ResponseEntity
-            .status(status)
-            .body(new ErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                status.getReasonPhrase(),
-                ex.getMessage()
-            ));
+        return ResponseEntity.status(ex.getStatus()).body(
+                new ErrorResponse(
+                        LocalDateTime.now(),
+                        ex.getStatus().value(),
+                        ex.getStatus().getReasonPhrase(),
+                        ex.getMessage()
+                )
+        );
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -33,36 +28,32 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException ex) {
 
         String message = ex.getBindingResult()
-            .getFieldErrors()
-            .stream()
-            .map(error ->
-                error.getField() + ": " +
-                error.getDefaultMessage()
-            )
-            .findFirst()
-            .orElse("Invalid request");
+                .getFieldErrors()
+                .stream()
+                .map(e -> e.getField() + ": " + e.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation failed");
 
-        return ResponseEntity
-            .badRequest()
-            .body(new ErrorResponse(
-                LocalDateTime.now(),
-                400,
-                "Bad Request",
-                message
-            ));
+        return ResponseEntity.badRequest().body(
+                new ErrorResponse(
+                        LocalDateTime.now(),
+                        400,
+                        "Bad Request",
+                        message
+                )
+        );
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneral(
-            Exception ex) {
+    public ResponseEntity<ErrorResponse> handleOther(Exception ex) {
 
-        return ResponseEntity
-            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(new ErrorResponse(
-                LocalDateTime.now(),
-                500,
-                "Internal Server Error",
-                "An unexpected error occurred"
-            ));
+        return ResponseEntity.status(500).body(
+                new ErrorResponse(
+                        LocalDateTime.now(),
+                        500,
+                        "Internal Server Error",
+                        "An unexpected error occurred"
+                )
+        );
     }
 }

@@ -1,103 +1,76 @@
-
 package com.example.hospital_manager.service;
 
 import com.example.hospital_manager.dto.*;
+import com.example.hospital_manager.exception.ApiException;
 import com.example.hospital_manager.model.*;
 import com.example.hospital_manager.repository.*;
-import com.example.hospital_manager.exception.ApiException;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class MedicalRecordService {
 
     private final MedicalRecordRepository recordRepository;
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
 
-    public MedicalRecordService(
-            MedicalRecordRepository recordRepository,
-            PatientRepository patientRepository,
-            UserRepository userRepository) {
-
-        this.recordRepository = recordRepository;
-        this.patientRepository = patientRepository;
-        this.userRepository = userRepository;
-    }
-
     public MedicalRecordResponse createRecord(
             MedicalRecordRequest request,
-            String doctorUsername) {
+            String username) {
 
-        AppUser doctor = userRepository
-            .findByUsername(doctorUsername)
-            .orElseThrow(() ->
-                new ApiException(
-                    "Doctor not found",
-                    HttpStatus.NOT_FOUND
-                )
-            );
+        AppUser doctor = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Doctor not found"));
 
         if (doctor.getRole() != Role.DOCTOR) {
-
             throw new ApiException(
-                "Only doctors can write medical records",
-                HttpStatus.FORBIDDEN
-            );
+                    HttpStatus.FORBIDDEN,
+                    "Only doctors can create medical records");
         }
 
-        Patient patient = patientRepository
-            .findById(request.patientId())
-            .orElseThrow(() ->
-                new ApiException(
-                    "Patient not found",
-                    HttpStatus.NOT_FOUND
-                )
-            );
+        Patient patient = patientRepository.findById(request.patientId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND, "Patient not found"));
 
-        MedicalRecord record = new MedicalRecord();
+        MedicalRecord record = MedicalRecord.builder()
+                .patient(patient)
+                .doctor(doctor)
+                .diagnosis(request.diagnosis())
+                .prescription(request.prescription())
+                .createdAt(LocalDateTime.now())
+                .build();
 
-        record.setPatient(patient);
-        record.setDoctor(doctor);
-        record.setDiagnosis(request.diagnosis());
-        record.setPrescription(request.prescription());
-
-        record = recordRepository.save(record);
-
-        return convertToResponse(record);
+        return toResponse(recordRepository.save(record));
     }
 
-    public List<MedicalRecordResponse> getPatientRecords(
-            Long patientId) {
+    public List<MedicalRecordResponse> getPatientRecords(Long patientId) {
 
         if (!patientRepository.existsById(patientId)) {
-
             throw new ApiException(
-                "Patient not found",
-                HttpStatus.NOT_FOUND
-            );
+                    HttpStatus.NOT_FOUND, "Patient not found");
         }
 
         return recordRepository.findByPatientId(patientId)
-            .stream()
-            .map(this::convertToResponse)
-            .toList();
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    private MedicalRecordResponse convertToResponse(
-            MedicalRecord record) {
+    private MedicalRecordResponse toResponse(MedicalRecord r) {
 
         return new MedicalRecordResponse(
-            record.getId(),
-            record.getPatient().getId(),
-            record.getPatient().getName(),
-            record.getDoctor().getUsername(),
-            record.getDiagnosis(),
-            record.getPrescription(),
-            record.getCreatedAt()
+                r.getId(),
+                r.getPatient().getId(),
+                r.getPatient().getName(),
+                r.getDoctor().getUsername(),
+                r.getDiagnosis(),
+                r.getPrescription(),
+                r.getCreatedAt()
         );
     }
 }

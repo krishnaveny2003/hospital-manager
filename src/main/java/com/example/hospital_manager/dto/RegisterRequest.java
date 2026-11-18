@@ -1,22 +1,18 @@
-
 package com.example.hospital_manager.dto;
 
 import com.example.hospital_manager.model.Role;
-
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 
 public record RegisterRequest(
 
-    @NotBlank(message = "Username is required")
-    String username,
+        @NotBlank
+        @Size(min = 3, max = 50)
+        String username,
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must have at least 8 characters")
-    String password,
+        @NotBlank
+        @Size(min = 8)
+        String password,
 
-    @NotNull(message = "Role is required")
-    Role role
-
+        @NotNull
+        Role role
 ) {}
